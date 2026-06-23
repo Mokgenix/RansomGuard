@@ -1,0 +1,18 @@
+{
+  "monitored_folders": [
+    "D:\\notess"
+  ],
+  "backup_folders": [
+    "D:\\noice"
+  ],
+  "backup_password": "11223344",
+  "honeypot_names": [
+    "slaryyy",
+    "mine_pass.pdf"
+  ],
+  "ai_api_key": "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",
+  "single_backup_mode": true,
+  "backup_interval_minutes": 60,
+  "monitored_folder": "D:\\Smart-Glove-for-Communication",
+  "backup_folder": "D:\\ahhahhahhaha"
+}
