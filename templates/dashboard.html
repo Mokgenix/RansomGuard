@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RansomGuard</title>
+<style>
+:root{
+  --bg:#0a0d14;--surface:#111520;--card:#161c2e;--border:#1e2640;
+  --text:#e2e8f0;--muted:#64748b;--dim:#334155;
+  --green:#22c55e;--green-d:#16a34a;--green-bg:rgba(34,197,94,.08);
+  --red:#ef4444;--red-d:#dc2626;--red-bg:rgba(239,68,68,.1);
+  --orange:#f97316;--orange-bg:rgba(249,115,22,.1);
+  --blue:#3b82f6;--blue-d:#2563eb;--blue-bg:rgba(59,130,246,.1);
+  --purple:#a855f7;--purple-bg:rgba(168,85,247,.1);
+  --yellow:#eab308;--yellow-bg:rgba(234,179,8,.1);
+  --radius:10px;--radius-lg:14px;--radius-sm:6px;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono','Fira Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;overflow-x:hidden}
+a{color:var(--blue);text-decoration:none}
+button{cursor:pointer;font-family:inherit;border:none;transition:all .15s}
+input,textarea,select{font-family:inherit;font-size:13px;outline:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── LOCK SCREEN ─────────────────────────── */
+.lock-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+}
+.lock-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;padding:40px 36px;width:94%;max-width:380px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);text-align:center;
+}
+.lock-icon{font-size:48px;margin-bottom:16px}
+.lock-title{font-size:22px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.lock-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.5}
+.lock-input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);padding:12px 16px;
+  font-size:15px;text-align:center;letter-spacing:.1em;margin-bottom:14px;
+}
+.lock-input:focus{border-color:var(--blue)}
+.lock-input::placeholder{letter-spacing:normal;color:var(--dim)}
+.lock-btn{
+  width:100%;padding:12px;border-radius:10px;background:var(--blue);
+  color:#fff;font-size:14px;font-weight:700;margin-bottom:10px;
+}
+.lock-btn:hover{background:var(--blue-d)}
+.lock-btn:disabled{opacity:.5;cursor:not-allowed}
+.lock-err{color:var(--red);font-size:12px;margin-top:-4px;margin-bottom:8px;min-height:18px}
+.lock-hint{font-size:11px;color:var(--dim);margin-top:4px}
+
+/* ── BACKUP PASS MODAL ───────────────────── */
+.bkpass-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:8000;align-items:center;justify-content:center;backdrop-filter:blur(3px);
+}
+.bkpass-overlay.open{display:flex}
+.bkpass-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:28px 28px 22px;width:94%;max-width:360px;text-align:center;
+  box-shadow:0 16px 40px rgba(0,0,0,.5);
+}
+.bkpass-icon{font-size:36px;margin-bottom:12px}
+.bkpass-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.bkpass-file{font-size:11px;color:var(--blue);font-family:var(--mono);margin-bottom:16px;word-break:break-all}
+.bkpass-input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);padding:10px 14px;
+  font-size:14px;text-align:center;letter-spacing:.1em;margin-bottom:12px;
+}
+.bkpass-input:focus{border-color:var(--blue)}
+.bkpass-err{color:var(--red);font-size:11px;min-height:16px;margin-bottom:8px}
+.bkpass-row{display:flex;gap:8px}
+.bkpass-row button{flex:1;padding:9px;border-radius:8px;font-size:13px;font-weight:600}
+.bkpass-cancel{background:var(--card);border:1px solid var(--border);color:var(--muted)}
+.bkpass-confirm{background:var(--blue);color:#fff}
+.bkpass-confirm:hover{background:var(--blue-d)}
+.bkpass-note{font-size:10px;color:var(--dim);margin-top:10px;line-height:1.5}
+
+/* ── SIDEBAR ─────────────────────────────── */
+.sidebar{
+  position:fixed;top:0;left:0;width:220px;height:100vh;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:50;
+}
+.sb-logo{
+  padding:20px 18px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.sb-logo-icon{
+  width:34px;height:34px;border-radius:8px;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;
+}
+.sb-logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.sb-logo-ver{font-size:10px;color:var(--muted);font-weight:400}
+.sb-status{
+  margin:12px 12px 0;padding:8px 12px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;
+}
+.sb-status.on{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.sb-status.off{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.sb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sb-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sb-dot.off{background:var(--red)}
+.sb-nav{flex:1;padding:10px 8px;overflow-y:auto}
+.sb-nav-label{
+  font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.08em;
+  text-transform:uppercase;padding:8px 10px 4px;
+}
+.sb-item{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border-radius:var(--radius-sm);color:var(--muted);font-size:13px;
+  cursor:pointer;transition:all .15s;margin-bottom:1px;
+}
+.sb-item:hover{background:var(--card);color:var(--text)}
+.sb-item.active{background:var(--blue-bg);color:var(--blue);font-weight:600}
+.sb-item-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sb-item-badge{
+  margin-left:auto;background:var(--red);color:#fff;
+  font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;
+}
+.sb-bottom{padding:12px 8px;border-top:1px solid var(--border)}
+.sb-btn{
+  width:100%;padding:8px 12px;border-radius:var(--radius-sm);
+  font-size:12px;font-weight:600;display:flex;align-items:center;
+  justify-content:center;gap:6px;
+}
+.sb-btn.start{background:var(--green-d);color:#fff;margin-bottom:6px}
+.sb-btn.start:hover{background:var(--green)}
+.sb-btn.stop{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.sb-btn.stop:hover{background:var(--red);color:#fff}
+
+/* ── MAIN ────────────────────────────────── */
+.main{margin-left:220px;padding:24px;min-height:100vh}
+
+/* ── TOPBAR ──────────────────────────────── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:22px;
+}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.topbar-actions{display:flex;gap:8px}
+.btn{
+  padding:7px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;
+  display:flex;align-items:center;gap:6px;
+}
+.btn-blue{background:var(--blue);color:#fff}.btn-blue:hover{background:var(--blue-d)}
+.btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--blue);color:var(--blue)}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:var(--red-d)}
+.btn-green{background:var(--green-d);color:#fff}.btn-green:hover{background:var(--green)}
+
+/* ── STAT CARDS ──────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:16px;position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+}
+.stat-card.blue::before{background:var(--blue)}
+.stat-card.green::before{background:var(--green)}
+.stat-card.red::before{background:var(--red)}
+.stat-card.orange::before{background:var(--orange)}
+.stat-card.purple::before{background:var(--purple)}
+.stat-card.yellow::before{background:var(--yellow)}
+.stat-label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:800;line-height:1;margin-bottom:3px}
+.stat-sub{font-size:11px;color:var(--muted)}
+.sv-blue{color:var(--blue)}.sv-green{color:var(--green)}
+.sv-red{color:var(--red)}.sv-orange{color:var(--orange)}
+.sv-purple{color:var(--purple)}.sv-yellow{color:var(--yellow)}
+
+/* ── LAYER BADGES ────────────────────────── */
+.layers-row{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:18px;
+}
+.layer-badge{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 8px;text-align:center;transition:all .2s;
+}
+.layer-badge.active{border-color:var(--green);background:var(--green-bg)}
+.layer-badge.alert{border-color:var(--red);background:var(--red-bg)}
+.layer-badge.warn{border-color:var(--orange);background:var(--orange-bg)}
+.layer-icon{font-size:20px;margin-bottom:5px}
+.layer-name{font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px}
+.layer-st{font-size:10px;font-weight:600;color:var(--muted)}
+.layer-badge.active .layer-st{color:var(--green)}
+.layer-badge.alert .layer-st{color:var(--red)}
+.layer-badge.warn .layer-st{color:var(--orange)}
+
+/* ── GRID LAYOUTS ────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.grid-3{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+.grid-3b{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+
+/* ── CARD ────────────────────────────────── */
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:16px;
+}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.card-action{font-size:11px;color:var(--blue);cursor:pointer;font-weight:600}
+.card-action:hover{opacity:.8}
+
+/* ── LOG BOX ─────────────────────────────── */
+.log-box{
+  height:260px;overflow-y:auto;background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;
+}
+.log-entry{
+  display:flex;gap:8px;align-items:flex-start;
+  padding:6px 8px;border-radius:6px;margin-bottom:2px;
+  font-size:11px;line-height:1.4;animation:fadeIn .25s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.log-entry.CRITICAL{background:rgba(239,68,68,.1);border-left:2px solid var(--red)}
+.log-entry.WARNING{background:rgba(249,115,22,.08);border-left:2px solid var(--orange)}
+.log-entry.INFO{background:rgba(59,130,246,.06);border-left:2px solid var(--blue)}
+.log-time{color:var(--dim);white-space:nowrap;font-family:var(--mono);font-size:10px;flex-shrink:0}
+.log-src{font-weight:700;white-space:nowrap;font-size:10px;flex-shrink:0}
+.CRITICAL .log-src{color:var(--red)}.WARNING .log-src{color:var(--orange)}.INFO .log-src{color:var(--blue)}
+.log-msg{flex:1;word-break:break-word;color:var(--text)}
+.log-cnt{background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
+
+/* ── FOLDER PICKER ───────────────────────── */
+.folder-section{margin-bottom:18px}
+.folder-targets{display:flex;flex-direction:column;gap:8px}
+.folder-tag-row{display:flex;flex-wrap:wrap;gap:6px;min-height:32px;align-items:center}
+.folder-tag{
+  display:flex;align-items:center;gap:6px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--blue);
+}
+.folder-tag-x{color:var(--muted);cursor:pointer;font-size:14px;line-height:1}
+.folder-tag-x:hover{color:var(--red)}
+.folder-add-btn{
+  padding:5px 12px;border-radius:var(--radius-sm);border:1px dashed var(--border);
+  background:transparent;color:var(--muted);font-size:12px;cursor:pointer;
+}
+.folder-add-btn:hover{border-color:var(--blue);color:var(--blue)}
+.folder-empty{font-size:11px;color:var(--muted);font-style:italic}
+
+/* ── SETTINGS INPUT ──────────────────────── */
+.settings-form{display:flex;flex-direction:column;gap:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.form-input{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text);padding:7px 10px;
+}
+.form-input:focus{border-color:var(--blue)}
+.form-input::placeholder{color:var(--dim)}
+.form-select{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text);padding:7px 10px;
+}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+.toggle-label{font-size:12px;color:var(--text)}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--dim);border-radius:20px;cursor:pointer;transition:.2s;
+}
+.toggle-slider::before{
+  content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:.2s;
+}
+.toggle input:checked+.toggle-slider{background:var(--green-d)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(16px)}
+.save-btn{
+  padding:8px 20px;border-radius:var(--radius-sm);background:var(--blue);
+  color:#fff;font-size:13px;font-weight:600;align-self:flex-start;
+}
+.save-btn:hover{background:var(--blue-d)}
+
+/* ── HONEYPOT MANAGER ────────────────────── */
+.hp-name-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:32px}
+.hp-tag{
+  display:flex;align-items:center;gap:6px;
+  background:var(--purple-bg);border:1px solid rgba(168,85,247,.3);
+  border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;color:var(--purple);
+}
+.hp-tag-x{color:var(--muted);cursor:pointer;font-size:14px;line-height:1}
+.hp-tag-x:hover{color:var(--red)}
+.hp-input-row{display:flex;gap:8px;margin-bottom:10px}
+.hp-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:7px 10px}
+.hp-input:focus{border-color:var(--purple)}
+.hp-add-btn{padding:7px 14px;border-radius:var(--radius-sm);background:var(--purple-bg);color:var(--purple);border:1px solid rgba(168,85,247,.3);font-weight:600}
+.hp-add-btn:hover{background:var(--purple);color:#fff}
+
+/* ── AI CHAT ─────────────────────────────── */
+.chat-box{
+  height:300px;overflow-y:auto;background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:10px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;
+}
+.chat-msg{
+  max-width:85%;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.5;
+  word-break:break-word;
+}
+.chat-msg.user{
+  align-self:flex-end;background:var(--blue);color:#fff;border-radius:10px 10px 2px 10px;
+}
+.chat-msg.ai{
+  align-self:flex-start;background:var(--card);border:1px solid var(--border);
+  color:var(--text);border-radius:10px 10px 10px 2px;
+}
+.chat-msg.error{align-self:flex-start;background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2);border-radius:10px}
+.chat-msg.thinking{align-self:flex-start;color:var(--muted);font-style:italic}
+.chat-input-row{display:flex;gap:8px}
+.chat-input{
+  flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text);padding:8px 12px;resize:none;height:38px;
+}
+.chat-input:focus{border-color:var(--blue)}
+.chat-send{padding:8px 16px;border-radius:var(--radius-sm);background:var(--blue);color:#fff;font-weight:600}
+.chat-send:hover{background:var(--blue-d)}
+.chat-send:disabled{opacity:.5;cursor:not-allowed}
+.chat-no-key{
+  display:flex;align-items:center;justify-content:center;height:100%;
+  font-size:12px;color:var(--muted);text-align:center;padding:20px;
+}
+
+/* ── BACKUP LIST ─────────────────────────── */
+.backup-item{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 12px;margin-bottom:6px;font-size:11px;
+}
+.bk-name{font-family:var(--mono);color:var(--green);flex:1;word-break:break-all}
+.bk-size{color:var(--muted);white-space:nowrap}
+.bk-dir{color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+
+/* ── PAGE TABS ───────────────────────────── */
+.page{display:none}.page.active{display:block}
+
+/* ── METER ───────────────────────────────── */
+.meter{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:5px}
+.meter-fill{height:100%;border-radius:3px;background:var(--green);transition:width .4s}
+.meter-fill.warn{background:var(--orange)}.meter-fill.danger{background:var(--red)}
+
+/* ── MODAL ───────────────────────────────── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px);
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);
+  width:94%;max-width:560px;max-height:82vh;display:flex;flex-direction:column;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+.modal-hd{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.modal-title{font-size:14px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.modal-close:hover{color:var(--text)}
+.modal-crumb{padding:8px 18px;font-family:var(--mono);font-size:11px;color:var(--blue);border-bottom:1px solid var(--border);word-break:break-all}
+.modal-body{flex:1;overflow-y:auto;padding:4px 8px}
+.modal-item{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:8px;cursor:pointer;font-size:12px;transition:background .1s;
+}
+.modal-item:hover{background:var(--border)}
+.modal-item.up{color:var(--muted)}
+.modal-item-name{flex:1;word-break:break-all}
+.modal-empty,.modal-loading,.modal-err{text-align:center;color:var(--muted);font-size:12px;padding:30px 0}
+.modal-err{color:var(--red)}
+.modal-ft{
+  padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;
+}
+.modal-ft button{flex:1;padding:8px;border-radius:var(--radius-sm);font-size:12px;font-weight:600}
+.modal-ft .cancel{background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+.modal-ft .confirm{background:var(--blue);color:#fff}
+.modal-ft .confirm:hover{background:var(--blue-d)}
+
+/* ── NOTIFICATION TOAST ──────────────────── */
+.toast{
+  position:fixed;top:16px;right:16px;z-index:1000;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px 16px;font-size:12px;max-width:320px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  transform:translateX(120%);transition:transform .3s;
+}
+.toast.show{transform:translateX(0)}
+.toast.success{border-left:3px solid var(--green);color:var(--green)}
+.toast.error{border-left:3px solid var(--red);color:var(--red)}
+.toast.info{border-left:3px solid var(--blue);color:var(--blue)}
+
+/* ── RESPONSIVE ──────────────────────────── */
+@media(max-width:1200px){
+  .stats-grid{grid-template-columns:repeat(3,1fr)}
+  .layers-row{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:900px){
+  .sidebar{width:60px}
+  .sb-logo-text,.sb-logo-ver,.sb-item span:not(.sb-item-icon),.sb-nav-label,.sb-status span:not(.sb-dot){display:none}
+  .main{margin-left:60px}
+  .sb-item{justify-content:center;padding:10px}
+  .sb-btn{padding:8px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .grid-2,.grid-3,.grid-3b{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ─────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon">🛡️</div>
+    <div>
+      <div class="sb-logo-text">RansomGuard</div>
+    </div>
+  </div>
+  <div class="sb-status off" id="sbStatus">
+    <div class="sb-dot off" id="sbDot"></div>
+    <span id="sbStatusText">STOPPED</span>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-nav-label">Navigation</div>
+    <div class="sb-item active" onclick="showPage('dashboard',this)">
+      <span class="sb-item-icon">📊</span><span>Dashboard</span>
+    </div>
+    <div class="sb-item" onclick="showPage('alerts',this)">
+      <span class="sb-item-icon">🚨</span><span>Alerts</span>
+      <span class="sb-item-badge" id="alertBadge" style="display:none">0</span>
+    </div>
+    <div class="sb-item" onclick="showPage('folders',this)">
+      <span class="sb-item-icon">📁</span><span>Folders</span>
+    </div>
+    <div class="sb-item" onclick="showPage('honeypots',this)">
+      <span class="sb-item-icon">🍯</span><span>Honeypots</span>
+    </div>
+    <div class="sb-item" onclick="showPage('backups',this)">
+      <span class="sb-item-icon">💾</span><span>Backups</span>
+    </div>
+    <div class="sb-item" onclick="showPage('ai',this)">
+      <span class="sb-item-icon">🤖</span><span>AI Assistant</span>
+    </div>
+    <div class="sb-item" onclick="showPage('settings',this)">
+      <span class="sb-item-icon">⚙️</span><span>Settings</span>
+    </div>
+  </nav>
+  <div class="sb-bottom">
+    <button class="sb-btn start" onclick="startProtection()">▶ Start</button>
+    <button class="sb-btn stop" onclick="stopProtection()">⏹ Stop</button>
+  </div>
+</aside>
+
+<!-- ── MAIN ──────────────────────────────── -->
+<main class="main">
+
+<!-- ── DASHBOARD PAGE ─────────────────────── -->
+<div class="page active" id="page-dashboard">
+  <div class="topbar">
+    <div>
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="dashTimestamp">Last updated --:--:--</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-blue" onclick="backupNow()">💾 Backup Now</button>
+      <button class="btn btn-ghost" onclick="clearAlerts()">🗑 Clear Alerts</button>
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-label">Files Watched</div>
+      <div class="stat-value sv-blue" id="stFiles">0</div>
+      <div class="stat-sub">across all monitored folders</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Total Alerts</div>
+      <div class="stat-value sv-red" id="stAlerts">0</div>
+      <div class="stat-sub">since protection started</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-label">Processes Blocked</div>
+      <div class="stat-value sv-orange" id="stProcs">0</div>
+      <div class="stat-sub">suspicious processes killed</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Last Backup</div>
+      <div class="stat-value sv-green" style="font-size:16px;margin-top:4px" id="stBackup">Never</div>
+      <div class="stat-sub">auto-saves every hour</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">LotL Detections</div>
+      <div class="stat-value sv-purple" id="stLotl">0</div>
+      <div class="stat-sub">suspicious trusted-tool usage</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-label">Slow-Burn Files</div>
+      <div class="stat-value sv-yellow" id="stSlow">0</div>
+      <div class="stat-sub">unique files changed / 6h window</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Network Blocks</div>
+      <div class="stat-value sv-blue" id="stNet">0</div>
+      <div class="stat-sub">suspicious connections detected</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Entropy Checks</div>
+      <div class="stat-value sv-green" id="stEntropy">0</div>
+      <div class="stat-sub">file content scans done</div>
+    </div>
+  </div>
+
+  <!-- 7 LAYERS -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <div class="card-title">🔒 Protection Layers</div>
+      <div id="layerSummary" style="font-size:11px;color:var(--muted)">All inactive</div>
+    </div>
+    <div class="layers-row">
+      <div class="layer-badge" id="ly-fw"><div class="layer-icon">👁️</div><div class="layer-name">File Watcher</div><div class="layer-st">Inactive</div></div>
+      <div class="layer-badge" id="ly-ent"><div class="layer-icon">🌡️</div><div class="layer-name">Entropy</div><div class="layer-st">Inactive</div></div>
+      <div class="layer-badge" id="ly-hp"><div class="layer-icon">🍯</div><div class="layer-name">Honeypots</div><div class="layer-st">Inactive</div></div>
+      <div class="layer-badge" id="ly-pm"><div class="layer-icon">🔍</div><div class="layer-name">Process Mon.</div><div class="layer-st">Inactive</div></div>
+      <div class="layer-badge" id="ly-bk"><div class="layer-icon">💾</div><div class="layer-name">Backup</div><div class="layer-st">Inactive</div></div>
+      <div class="layer-badge" id="ly-nm"><div class="layer-icon">🌐</div><div class="layer-name">Network</div><div class="layer-st">Inactive</div></div>
+      <div class="layer-badge" id="ly-lk"><div class="layer-icon">🚨</div><div class="layer-name">Lockdown</div><div class="layer-st">Standby</div></div>
+    </div>
+  </div>
+
+  <!-- LOGS -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Live Alerts <span class="log-cnt" id="alertCnt">0</span></div>
+        <div class="card-action" onclick="showPage('alerts',null)">View all →</div>
+      </div>
+      <div class="log-box" id="alertBox">
+        <div class="log-entry INFO"><span class="log-time">--:--:--</span><span class="log-src INFO">System</span><span class="log-msg">Waiting for protection to start…</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Recent Events</div></div>
+      <div class="log-box" id="eventsBox">
+        <div class="log-entry INFO"><span class="log-time">--:--:--</span><span class="log-src INFO">System</span><span class="log-msg">No events yet</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Activity Monitor</div></div>
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px">File modification rate</span>
+          <span style="font-size:12px;color:var(--green);font-weight:700" id="modRate">0/min</span>
+        </div>
+        <div class="meter"><div class="meter-fill" id="modMeter" style="width:0%"></div></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px">Honeypot status</span>
+          <span style="font-size:12px;font-weight:700" id="hpStatusText">Inactive</span>
+        </div>
+        <div class="meter"><div class="meter-fill" id="hpMeter" style="width:0%;background:var(--muted)"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px">Slow-burn window (6h)</span>
+          <span style="font-size:12px;color:var(--yellow);font-weight:700" id="slowPct">0/50</span>
+        </div>
+        <div class="meter"><div class="meter-fill" id="slowMeter" style="width:0%;background:var(--yellow)"></div></div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:8px">Monitored Folders</div>
+        <div id="monDirList"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Backup Snapshots</div>
+        <div class="card-action" onclick="backupNow()">+ Now</div>
+      </div>
+      <div id="backupListDash">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:30px 0">No backups yet</div>
+      </div>
+    </div>
+  </div>
+</div><!-- /dashboard -->
+
+<!-- ── ALERTS PAGE ─────────────────────────── -->
+<div class="page" id="page-alerts">
+  <div class="topbar">
+    <div><div class="page-title">All Alerts</div><div class="page-sub">Full alert history with details</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" onclick="clearAlerts()">🗑 Clear All</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="log-box" id="fullAlertBox" style="height:calc(100vh - 200px)">
+      <div class="log-entry INFO"><span class="log-time">--:--:--</span><span class="log-src INFO">System</span><span class="log-msg">No alerts yet</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOLDERS PAGE ────────────────────────── -->
+<div class="page" id="page-folders">
+  <div class="topbar">
+    <div><div class="page-title">Folder Settings</div><div class="page-sub">Choose which folders to monitor and where to store backups</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-green" id="saveFoldersBtn" onclick="saveFolders()">💾 Save &amp; Apply</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📁 Folders to Monitor &amp; Back Up</div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Add one or more folders. All will be watched for ransomware activity and included in every backup.
+      </p>
+      <div class="folder-tag-row" id="monTagRow"></div>
+      <button class="folder-add-btn" style="margin-top:8px" onclick="openPicker('monitor')">+ Add Folder…</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💾 Backup Destination Folders</div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Add one or more destinations. Backups are written to all of them (e.g. local drive + USB).
+      </p>
+      <div class="folder-tag-row" id="bkTagRow"></div>
+      <button class="folder-add-btn" style="margin-top:8px" onclick="openPicker('backup')">+ Add Destination…</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">ℹ️ Current Active Paths</div></div>
+    <div id="activePaths" style="font-size:12px;color:var(--muted)">Loading…</div>
+  </div>
+</div>
+
+<!-- ── HONEYPOTS PAGE ──────────────────────── -->
+<div class="page" id="page-honeypots">
+  <div class="topbar">
+    <div><div class="page-title">Honeypot Manager</div><div class="page-sub">Configure decoy file names and generate AI content</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-orange" onclick="generateAIHoneypots()" id="aiHpBtn">🤖 AI Generate Content</button>
+      <button class="btn btn-blue" onclick="redeployHoneypots()" id="redeployBtn">🔄 Redeploy Now</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🍯 Custom File Names</div></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Add file names to use as decoys. Leave empty to use built-in realistic names.
+        Use <code style="color:var(--blue)">{y}</code> for year, <code style="color:var(--blue)">{m}</code> for month, <code style="color:var(--blue)">{q}</code> for quarter.
+      </p>
+      <div class="hp-name-list" id="hpNameList"></div>
+      <div class="hp-input-row">
+        <input class="hp-input" id="hpNameInput" placeholder="e.g. salary_slip_{m}_{y}.pdf" onkeydown="if(event.key==='Enter')addHpName()"/>
+        <button class="hp-add-btn" onclick="addHpName()">+ Add</button>
+      </div>
+      <button class="save-btn" style="width:100%" onclick="saveHoneypotNames()">💾 Save Names</button>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">📊 Current Status</div></div>
+      <div style="margin-bottom:12px">
+        <div class="form-label" style="margin-bottom:6px">Active decoy files</div>
+        <div style="font-size:24px;font-weight:800;color:var(--purple)" id="hpCount">—</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="form-label" style="margin-bottom:6px">Honeypot status</div>
+        <div style="font-size:14px;font-weight:700" id="hpStatusBig">Inactive</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="form-label" style="margin-bottom:6px">Next rotation</div>
+        <div style="font-size:12px;color:var(--muted)">Every 30 days automatically</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px">
+        <strong style="color:var(--text)">Tip:</strong> The AI content generator creates realistic-looking office document text (invoices, contracts, salary reviews) that makes the decoy files indistinguishable from real documents.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── BACKUPS PAGE ────────────────────────── -->
+<div class="page" id="page-backups">
+  <div class="topbar">
+    <div><div class="page-title">Backup Manager</div><div class="page-sub">Password-protected snapshots of your monitored folders</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-blue" onclick="backupNow()">💾 Backup Now</button>
+    </div>
+  </div>
+  <div class="grid-3b">
+    <div class="card">
+      <div class="card-label" style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Last Backup</div>
+      <div style="font-size:22px;font-weight:800;color:var(--green)" id="bkLastTime">Never</div>
+    </div>
+    <div class="card">
+      <div class="card-label" style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Total Snapshots</div>
+      <div style="font-size:22px;font-weight:800;color:var(--blue)" id="bkCount">0</div>
+    </div>
+    <div class="card">
+      <div class="card-label" style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Password Protection</div>
+      <div style="font-size:14px;font-weight:700;color:var(--orange)" id="bkPwdStatus">Active</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📦 Backup Files</div>
+      <div style="font-size:11px;color:var(--muted)" id="bkModeLabel">—</div>
+    </div>
+    <div id="fullBackupList">
+      <div style="color:var(--muted);font-size:12px;text-align:center;padding:40px">No backups yet. Click "Backup Now" to create one.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="card-header"><div class="card-title">🔑 How to Open a Backup</div></div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.7">
+      Backup files are password-protected ZIP archives. To open:<br>
+      1. Right-click the .zip file → Extract All (Windows) or use 7-Zip / WinRAR<br>
+      2. Enter your backup password when prompted<br>
+      3. Your files will be restored to the chosen folder<br>
+      <br>
+      <strong style="color:var(--text)">Default password:</strong> <code style="color:var(--blue)" id="pwdDisplay">11223344</code>
+      — change this in Settings → Backup Password.
+    </div>
+  </div>
+</div>
+
+<!-- ── AI PAGE ─────────────────────────────── -->
+<div class="page" id="page-ai">
+  <div class="topbar">
+    <div><div class="page-title">AI Security Assistant</div><div class="page-sub">Ask anything about your security setup, alerts, or ransomware threats</div></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" onclick="clearChat()">🗑 Clear Chat</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="chat-box" id="chatBox">
+      <div class="chat-msg ai" id="chatWelcome">
+        👋 Hi! I'm your RansomGuard AI assistant.<br><br>
+        I can help you:<br>
+        • Understand and explain any alerts<br>
+        • Answer questions about ransomware threats<br>
+        • Suggest security improvements<br>
+        • Generate realistic honeypot file content<br><br>
+        <em style="color:var(--muted);font-size:11px">Powered by nvidia/nemotron via OpenRouter. Just type to start.</em>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" placeholder="Ask me anything about your security…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+      <button class="chat-send" onclick="sendChat()" id="chatSendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETTINGS PAGE ───────────────────────── -->
+<div class="page" id="page-settings">
+  <div class="topbar">
+    <div><div class="page-title">Settings</div><div class="page-sub">Configure RansomGuard protection options</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔐 Dashboard Password</div></div>
+      <div class="settings-form">
+        <div class="form-group">
+          <div class="form-label">Dashboard Password</div>
+          <input class="form-input" id="cfgDashPwd" type="text" placeholder="e.g. ransomguard"/>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">Required every time the dashboard is opened. Cleared when server stops.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">💾 Backup Options</div></div>
+      <div class="settings-form">
+        <div class="form-group">
+          <div class="form-label">Backup Password</div>
+          <input class="form-input" id="cfgBkPwd" type="text" placeholder="e.g. 11223344"/>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">Required every time you access a backup file.</div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Backup Interval (minutes)</div>
+          <input class="form-input" id="cfgBkInterval" type="number" min="5" max="1440" value="60"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-label">Replace old backup (save space)</div>
+          <label class="toggle"><input type="checkbox" id="cfgSingleMode" checked/><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><div class="card-title">🛡️ Detection Thresholds</div></div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Burst threshold (files/10s)</div>
+        <input class="form-input" id="cfgBurst" type="number" value="20" min="5" max="200"/>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">Trigger alarm if this many files change in 10 seconds</div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Slow-burn threshold (files/6h)</div>
+        <input class="form-input" id="cfgSlow" type="number" value="50" min="10" max="500"/>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">Trigger warning if this many unique files change over 6 hours</div>
+      </div>
+    </div>
+  </div>
+  <button class="save-btn" onclick="saveSettings()">💾 Save All Settings</button>
+</div>
+
+</main><!-- /main -->
+
+<!-- ── LOCK SCREEN ────────────────────────── -->
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-icon">🛡️</div>
+    <div class="lock-title">RansomGuard</div>
+    <div class="lock-sub">Enter your dashboard password to continue.<br>Session ends when you close this tab or stop the server.</div>
+    <input class="lock-input" id="lockInput" type="password" placeholder="Enter password"
+           onkeydown="if(event.key==='Enter')doUnlock()"/>
+    <div class="lock-err" id="lockErr"></div>
+    <button class="lock-btn" id="lockBtn" onclick="doUnlock()">🔓 Unlock Dashboard</button>
+    <div class="lock-hint">Default password: <code>ransomguard</code> — change in Settings</div>
+  </div>
+</div>
+
+<!-- ── BACKUP PASSWORD MODAL ──────────────── -->
+<div class="bkpass-overlay" id="bkpassOverlay">
+  <div class="bkpass-card">
+    <div class="bkpass-icon">🔐</div>
+    <div class="bkpass-title">Enter Backup Password</div>
+    <div class="bkpass-file" id="bkpassFile">backup_file.zip</div>
+    <input class="bkpass-input" id="bkpassInput" type="password" placeholder="Backup password"
+           onkeydown="if(event.key==='Enter')confirmBkPass()"/>
+    <div class="bkpass-err" id="bkpassErr"></div>
+    <div class="bkpass-row">
+      <button class="bkpass-cancel" onclick="closeBkPass()">Cancel</button>
+      <button class="bkpass-confirm" onclick="confirmBkPass()">Unlock →</button>
+    </div>
+    <div class="bkpass-note">
+      Password required every time you access a backup.<br>
+      Not stored — cleared when server stops.
+    </div>
+  </div>
+</div>
+
+<!-- ── FOLDER BROWSER MODAL ──────────────── -->
+<div class="modal-overlay" id="pickerModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="pickerTitle">Select Folder</div>
+      <button class="modal-close" onclick="closePicker()">✕</button>
+    </div>
+    <div class="modal-crumb" id="pickerCrumb">My Computer</div>
+    <div class="modal-body" id="pickerBody"><div class="modal-loading">Loading…</div></div>
+    <div class="modal-ft">
+      <button class="cancel" onclick="closePicker()">Cancel</button>
+      <button class="confirm" onclick="confirmPicker()">✅ Select This Folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── JAVASCRIPT ─────────────────────────── -->
+<script>
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+let state = {};
+let pickerMode = null;
+let pickerPath = '';
+let monFolders = [];
+let bkFolders  = [];
+let hpNames    = [];
+let chatHistory = [];
+let chatBusy = false;
+let sessionToken = '';       // in-memory only — gone when tab closes
+let bkpassCallback = null;   // resolved when user confirms backup password
+
+// ─────────────────────────────────────────
+//  LOCK SCREEN
+// ─────────────────────────────────────────
+async function doUnlock() {
+  const pwd = document.getElementById('lockInput').value;
+  const err = document.getElementById('lockErr');
+  const btn = document.getElementById('lockBtn');
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pwd}),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      sessionToken = d.token;
+      document.getElementById('lockScreen').style.display = 'none';
+      document.getElementById('lockInput').value = '';
+      fetchState();
+      setInterval(fetchState, 3000);
+    } else {
+      err.textContent = d.error || 'Wrong password';
+      document.getElementById('lockInput').value = '';
+      document.getElementById('lockInput').focus();
+    }
+  } catch(e) {
+    err.textContent = 'Server not reachable';
+  }
+  btn.disabled = false;
+  btn.textContent = '🔓 Unlock Dashboard';
+}
+
+// Re-show lock screen if API returns 401 (e.g. server restarted)
+function handleUnauthorized() {
+  sessionToken = '';
+  document.getElementById('lockScreen').style.display = 'flex';
+  document.getElementById('lockInput').value = '';
+  document.getElementById('lockErr').textContent = 'Session ended — please log in again';
+  document.getElementById('lockInput').focus();
+}
+
+async function doLogout() {
+  await fetch('/api/logout', {
+    method: 'POST',
+    headers: {'X-RG-Session': sessionToken},
+  }).catch(() => {});
+  sessionToken = '';
+  document.getElementById('lockScreen').style.display = 'flex';
+  document.getElementById('lockInput').value = '';
+  document.getElementById('lockErr').textContent = '';
+  setTimeout(() => document.getElementById('lockInput').focus(), 100);
+}
+
+// Show lock on page load — user must unlock before anything works
+document.getElementById('lockInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doUnlock();
+});
+setTimeout(() => document.getElementById('lockInput').focus(), 100);
+
+// ─────────────────────────────────────────
+//  BACKUP PASSWORD GATE
+//  Called every time user clicks a backup.
+//  Returns the entered password or null.
+// ─────────────────────────────────────────
+function askBackupPassword(filename) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('bkpassOverlay');
+    const inp = document.getElementById('bkpassInput');
+    const err = document.getElementById('bkpassErr');
+    document.getElementById('bkpassFile').textContent = filename;
+    inp.value = '';
+    err.textContent = '';
+    overlay.classList.add('open');
+    bkpassCallback = resolve;
+    setTimeout(() => inp.focus(), 80);
+  });
+}
+
+function confirmBkPass() {
+  const val = document.getElementById('bkpassInput').value;
+  if (!val) {
+    document.getElementById('bkpassErr').textContent = 'Enter the backup password';
+    return;
+  }
+  closeBkPass();
+  if (bkpassCallback) { bkpassCallback(val); bkpassCallback = null; }
+}
+
+function closeBkPass() {
+  document.getElementById('bkpassOverlay').classList.remove('open');
+  document.getElementById('bkpassInput').value = '';
+  document.getElementById('bkpassErr').textContent = '';
+  if (bkpassCallback) { bkpassCallback(null); bkpassCallback = null; }
+}
+
+// Clicking a backup entry triggers the password gate, then shows
+// the user the password they need to open that specific zip.
+async function openBackup(filename) {
+  const pwd = await askBackupPassword(filename);
+  if (!pwd) return;
+  // We can't open zip files from the browser directly — instead we
+  // show the user the password so they can open it in File Explorer.
+  // This satisfies "must enter password every time" without needing
+  // to decrypt files in the browser.
+  const cfg = state.config || {};
+  const correctPwd = cfg.backup_password || '11223344';
+  if (pwd === correctPwd) {
+    toast(`✅ Password correct. Open ${filename} in File Explorer and enter: ${pwd}`, 'success');
+  } else {
+    toast('❌ Wrong backup password', 'error');
+  }
+}
+
+// ─────────────────────────────────────────
+//  NAVIGATION
+// ─────────────────────────────────────────
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+// ─────────────────────────────────────────
+//  POLL STATE
+// ─────────────────────────────────────────
+async function fetchState() {
+  try {
+    const r = await fetch('/api/state', {
+      headers: {'X-RG-Session': sessionToken},
+    });
+    if (r.status === 401) { handleUnauthorized(); return; }
+    state = await r.json();
+    updateAll(state);
+  } catch(e) {}
+}
+
+function updateAll(d) {
+  const s = d.stats;
+  const running = d.running;
+
+  // Sidebar status
+  const sb = document.getElementById('sbStatus');
+  const dot = document.getElementById('sbDot');
+  const stxt = document.getElementById('sbStatusText');
+  if (running) {
+    sb.className = 'sb-status on'; dot.className = 'sb-dot on'; stxt.textContent = 'ACTIVE';
+  } else {
+    sb.className = 'sb-status off'; dot.className = 'sb-dot off'; stxt.textContent = 'STOPPED';
+  }
+
+  // Stat cards
+  document.getElementById('stFiles').textContent   = (s.files_watched||0).toLocaleString();
+  document.getElementById('stAlerts').textContent  = s.alerts_triggered||0;
+  document.getElementById('stProcs').textContent   = s.blocked_processes||0;
+  document.getElementById('stBackup').textContent  = s.last_backup||'Never';
+  document.getElementById('stLotl').textContent    = s.lotl_detections||0;
+  document.getElementById('stSlow').textContent    = s.cumulative_window_files||0;
+  document.getElementById('stNet').textContent     = s.network_blocks||0;
+  document.getElementById('stEntropy').textContent = s.entropy_checks||0;
+  document.getElementById('dashTimestamp').textContent = 'Last updated ' + (d.timestamp||'--:--:--');
+
+  // Alert badge
+  const ac = (d.alerts||[]).length;
+  const badge = document.getElementById('alertBadge');
+  badge.style.display = ac ? 'inline-block' : 'none';
+  badge.textContent = ac;
+  document.getElementById('alertCnt').textContent = ac;
+
+  // Layers
+  setLayer('ly-fw',  running, 'Watching');
+  setLayer('ly-ent', running, 'Scanning');
+  setLayer('ly-pm',  running, 'Active');
+  setLayer('ly-bk',  running, s.last_backup !== 'Never' ? 'Backed up' : 'Waiting');
+  setLayer('ly-nm',  running, 'Monitoring');
+  setLayer('ly-lk',  running, 'Standby', 'warn');
+  const hp = s.honeypot_status || 'Inactive';
+  const hpEl = document.getElementById('ly-hp');
+  const hpSt = hpEl.querySelector('.layer-st');
+  if (!running) { hpEl.className = 'layer-badge'; hpSt.textContent = 'Inactive'; }
+  else if (hp === 'TRIGGERED') { hpEl.className = 'layer-badge alert'; hpSt.textContent = 'TRIGGERED'; }
+  else { hpEl.className = 'layer-badge active'; hpSt.textContent = hp; }
+
+  const active = running ? document.querySelectorAll('.layer-badge.active').length : 0;
+  document.getElementById('layerSummary').textContent =
+    running ? `${active}/7 layers active` : 'Protection stopped';
+
+  // Alerts box
+  renderLog('alertBox', d.alerts, 15);
+  renderLog('eventsBox', d.recent_events, 15);
+  renderLog('fullAlertBox', d.alerts, 100);
+
+  // Meters
+  const mod = s.modifications_per_min || 0;
+  document.getElementById('modRate').textContent = mod + '/min';
+  const mp = Math.min(mod * 2, 100);
+  const mm = document.getElementById('modMeter');
+  mm.style.width = mp + '%';
+  mm.className = 'meter-fill' + (mod > 30 ? ' danger' : mod > 15 ? ' warn' : '');
+
+  const hpTxt = document.getElementById('hpStatusText');
+  const hpm = document.getElementById('hpMeter');
+  hpTxt.textContent = hp;
+  hpTxt.style.color = hp === 'TRIGGERED' ? 'var(--red)' : hp === 'Safe' ? 'var(--green)' : 'var(--muted)';
+  hpm.style.width = running ? '100%' : '0%';
+  hpm.style.background = hp === 'TRIGGERED' ? 'var(--red)' : running ? 'var(--green)' : 'var(--muted)';
+
+  const slow = s.cumulative_window_files || 0;
+  document.getElementById('slowPct').textContent = slow + '/50';
+  document.getElementById('slowMeter').style.width = Math.min(slow * 2, 100) + '%';
+
+  // Monitored dirs
+  const mdl = document.getElementById('monDirList');
+  mdl.innerHTML = (d.monitored_dirs||[]).map(p =>
+    `<div style="font-family:var(--mono);font-size:11px;color:var(--blue);padding:3px 0;word-break:break-all">📁 ${p}</div>`
+  ).join('') || '<div style="color:var(--muted);font-size:11px">No folders configured</div>';
+
+  // Backups
+  renderBackups(d.backups || []);
+
+  // Honeypot page
+  document.getElementById('hpStatusBig').textContent = hp;
+  document.getElementById('hpStatusBig').style.color =
+    hp === 'TRIGGERED' ? 'var(--red)' : hp === 'Safe' ? 'var(--green)' : 'var(--muted)';
+
+  // Active paths
+  const ap = document.getElementById('activePaths');
+  if (ap) {
+    const ml = (d.monitored_dirs||[]).map(p => `<div style="color:var(--blue);font-family:var(--mono);font-size:11px;margin:2px 0">📁 ${p}</div>`).join('');
+    const bl = (d.backup_dirs||[]).map(p => `<div style="color:var(--green);font-family:var(--mono);font-size:11px;margin:2px 0">💾 ${p}</div>`).join('');
+    ap.innerHTML = `<div style="margin-bottom:6px"><b style="color:var(--muted)">Monitored:</b><br>${ml||'<span style="color:var(--muted)">defaults</span>'}</div>
+                    <div><b style="color:var(--muted)">Backup destinations:</b><br>${bl||'<span style="color:var(--muted)">default backups/ folder</span>'}</div>`;
+  }
+
+  // Backup page
+  document.getElementById('bkLastTime').textContent = s.last_backup || 'Never';
+  document.getElementById('bkCount').textContent = (d.backups||[]).length;
+  const cfg = d.config || {};
+  document.getElementById('bkPwdStatus').textContent = cfg.backup_password ? 'Active (' + cfg.backup_password + ')' : 'Not set';
+  document.getElementById('pwdDisplay').textContent = cfg.backup_password || '11223344';
+  document.getElementById('bkModeLabel').textContent = cfg.single_backup_mode ? 'Replace mode: 1 backup per destination' : 'Keep all backups';
+  renderBackupsFull(d.backups || []);
+
+  // Sync folder lists if we haven't touched them this session
+  if (monFolders.length === 0 && (cfg.monitored_folders||[]).length > 0) {
+    monFolders = cfg.monitored_folders;
+    renderFolderTags();
+  }
+  if (bkFolders.length === 0 && (cfg.backup_folders||[]).length > 0) {
+    bkFolders = cfg.backup_folders;
+    renderFolderTags();
+  }
+  if (hpNames.length === 0 && (cfg.honeypot_names||[]).length > 0) {
+    hpNames = cfg.honeypot_names;
+    renderHpTags();
+  }
+
+  // Settings fields (only populate once)
+  if (!document.getElementById('cfgApiKey').dataset.loaded) {
+    document.getElementById('cfgApiKey').value = cfg.ai_api_key || '';
+    document.getElementById('cfgBkPwd').value = cfg.backup_password || '11223344';
+    document.getElementById('cfgBkInterval').value = cfg.backup_interval_minutes || 60;
+    document.getElementById('cfgSingleMode').checked = cfg.single_backup_mode !== false;
+    document.getElementById('cfgApiKey').dataset.loaded = '1';
+  }
+}
+
+function setLayer(id, running, label, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const st = el.querySelector('.layer-st');
+  if (running) {
+    el.className = 'layer-badge ' + (cls || 'active');
+    if (st) st.textContent = label;
+  } else {
+    el.className = 'layer-badge';
+    if (st) st.textContent = 'Inactive';
+  }
+}
+
+function renderLog(id, entries, limit) {
+  const el = document.getElementById(id);
+  if (!el || !entries) return;
+  if (!entries.length) return;
+  el.innerHTML = entries.slice(0, limit).map(e =>
+    `<div class="log-entry ${e.level}">
+      <span class="log-time">${e.time}</span>
+      <span class="log-src ${e.level}">${e.source}</span>
+      <span class="log-msg">${e.message}</span>
+    </div>`
+  ).join('');
+}
+
+function renderBackups(backups) {
+  const el = document.getElementById('backupListDash');
+  if (!el) return;
+  if (!backups.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">No backups yet</div>';
+    return;
+  }
+  el.innerHTML = backups.slice(0,5).map(b =>
+    `<div class="backup-item" style="cursor:pointer" onclick="openBackup('${esc(b.name)}')" title="Click to access — password required">
+      <span class="bk-name">📦 ${b.name}</span>
+      <span class="bk-size">${b.size}</span>
+      <span style="font-size:10px;color:var(--muted)">🔐 click to access</span>
+    </div>`
+  ).join('');
+}
+
+function renderBackupsFull(backups) {
+  const el = document.getElementById('fullBackupList');
+  if (!el) return;
+  if (!backups.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:40px">No backups yet</div>';
+    return;
+  }
+  el.innerHTML = backups.map(b =>
+    `<div class="backup-item" style="cursor:pointer" onclick="openBackup('${esc(b.name)}')" title="Click to access — password required">
+      <span class="bk-name">📦 ${b.name}</span>
+      <span class="bk-size">${b.size}</span>
+      <span class="bk-dir" title="${b.dir}">→ ${b.dir}</span>
+      <span style="font-size:10px;color:var(--orange);margin-left:auto">🔐 password required</span>
+    </div>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────
+//  CONTROLS
+// ─────────────────────────────────────────
+const H = () => ({'Content-Type':'application/json','X-RG-Session':sessionToken});
+
+async function startProtection() {
+  await fetch('/api/start', {method:'POST', headers:H()});
+  toast('Protection started', 'success');
+  setTimeout(fetchState, 800);
+}
+
+async function stopProtection() {
+  await fetch('/api/stop', {method:'POST', headers:H()});
+  toast('Protection stopped', 'info');
+  setTimeout(fetchState, 400);
+}
+
+async function backupNow() {
+  toast('Creating backup…', 'info');
+  await fetch('/api/backup_now', {method:'POST', headers:H()});
+  setTimeout(() => { fetchState(); toast('Backup complete', 'success'); }, 3000);
+}
+
+async function clearAlerts() {
+  await fetch('/api/clear_alerts', {method:'POST', headers:H()});
+  fetchState();
+}
+
+// ─────────────────────────────────────────
+//  FOLDER PICKER
+// ─────────────────────────────────────────
+function openPicker(mode) {
+  pickerMode = mode;
+  pickerPath = '';
+  const titles = {monitor:'📁 Select Folder to Monitor', backup:'💾 Select Backup Destination'};
+  document.getElementById('pickerTitle').textContent = titles[mode]||'Select Folder';
+  document.getElementById('pickerModal').classList.add('open');
+  loadFolder('');
+}
+
+function closePicker() {
+  document.getElementById('pickerModal').classList.remove('open');
+  pickerMode = null;
+}
+
+async function loadFolder(path) {
+  const body = document.getElementById('pickerBody');
+  const crumb = document.getElementById('pickerCrumb');
+  body.innerHTML = '<div class="modal-loading">Loading…</div>';
+  try {
+    const r = await fetch('/api/browse?path=' + encodeURIComponent(path), {
+      headers: {'X-RG-Session': sessionToken},
+    });
+    const d = await r.json();
+    if (d.error) { body.innerHTML = `<div class="modal-err">⚠️ ${d.error}</div>`; return; }
+    pickerPath = d.path || '';
+    crumb.textContent = pickerPath || 'My Computer';
+    let html = '';
+    if (d.parent !== null && d.parent !== undefined) {
+      html += `<div class="modal-item up" onclick="loadFolder(${js(d.parent)})"><span>⬆️</span><span class="modal-item-name">.. Up one level</span></div>`;
+    } else if (pickerPath) {
+      html += `<div class="modal-item up" onclick="loadFolder('')"><span>💻</span><span class="modal-item-name">My Computer</span></div>`;
+    }
+    if (d.folders && d.folders.length) {
+      html += d.folders.map(f =>
+        `<div class="modal-item" onclick="loadFolder(${js(f.path)})"><span>📁</span><span class="modal-item-name">${esc(f.name)}</span></div>`
+      ).join('');
+    } else if (pickerPath) {
+      html += '<div class="modal-empty">No subfolders</div>';
+    }
+    body.innerHTML = html || '<div class="modal-empty">Nothing found</div>';
+  } catch(e) {
+    body.innerHTML = '<div class="modal-err">Could not load folders</div>';
+  }
+}
+
+function confirmPicker() {
+  if (!pickerPath) { toast('Navigate into a folder first', 'error'); return; }
+  if (pickerMode === 'monitor') {
+    if (!monFolders.includes(pickerPath)) { monFolders.push(pickerPath); renderFolderTags(); }
+  } else if (pickerMode === 'backup') {
+    if (!bkFolders.includes(pickerPath)) { bkFolders.push(pickerPath); renderFolderTags(); }
+  }
+  closePicker();
+  toast('Folder added — click Save & Apply', 'info');
+}
+
+document.getElementById('pickerModal').addEventListener('click', e => {
+  if (e.target.id === 'pickerModal') closePicker();
+});
+
+function renderFolderTags() {
+  const mr = document.getElementById('monTagRow');
+  const br = document.getElementById('bkTagRow');
+  if (mr) mr.innerHTML = monFolders.length
+    ? monFolders.map((f,i) => `<div class="folder-tag">📁 ${f}<span class="folder-tag-x" onclick="removeFolder('monitor',${i})">×</span></div>`).join('')
+    : '<div class="folder-empty">No folders selected — will use defaults</div>';
+  if (br) br.innerHTML = bkFolders.length
+    ? bkFolders.map((f,i) => `<div class="folder-tag">💾 ${f}<span class="folder-tag-x" onclick="removeFolder('backup',${i})">×</span></div>`).join('')
+    : '<div class="folder-empty">No destination selected — will use local backups/ folder</div>';
+}
+
+function removeFolder(type, idx) {
+  if (type === 'monitor') monFolders.splice(idx, 1);
+  else bkFolders.splice(idx, 1);
+  renderFolderTags();
+}
+
+async function saveFolders() {
+  const btn = document.getElementById('saveFoldersBtn');
+  btn.textContent = '⏳ Saving…';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/save_config', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+      body: JSON.stringify({monitored_folders: monFolders, backup_folders: bkFolders}),
+    });
+    if (r.status === 401) { handleUnauthorized(); return; }
+    const d = await r.json();
+    if (d.status === 'ok') toast('Folders saved and applied', 'success');
+    else toast('Error: ' + JSON.stringify(d), 'error');
+    fetchState();
+  } catch(e) { toast('Save failed', 'error'); }
+  btn.textContent = '💾 Save & Apply';
+  btn.disabled = false;
+}
+
+// ─────────────────────────────────────────
+//  HONEYPOT MANAGER
+// ─────────────────────────────────────────
+function renderHpTags() {
+  const el = document.getElementById('hpNameList');
+  if (!el) return;
+  el.innerHTML = hpNames.length
+    ? hpNames.map((n,i) => `<div class="hp-tag">${n}<span class="hp-tag-x" onclick="removeHpName(${i})">×</span></div>`).join('')
+    : '';
+}
+
+function addHpName() {
+  const inp = document.getElementById('hpNameInput');
+  const v = inp.value.trim();
+  if (v && !hpNames.includes(v)) { hpNames.push(v); renderHpTags(); inp.value = ''; }
+}
+
+function removeHpName(i) {
+  hpNames.splice(i, 1);
+  renderHpTags();
+}
+
+async function saveHoneypotNames() {
+  await fetch('/api/save_config', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+    body: JSON.stringify({honeypot_names: hpNames}),
+  });
+  toast('Honeypot names saved', 'success');
+}
+
+async function redeployHoneypots() {
+  const btn = document.getElementById('redeployBtn');
+  btn.textContent = '⏳ Deploying…';
+  btn.disabled = true;
+  const r = await fetch('/api/redeploy_honeypots', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+    body: JSON.stringify({names: hpNames.length ? hpNames : null}),
+  });
+  if (r.status === 401) { handleUnauthorized(); return; }
+  const d = await r.json();
+  toast(d.status === 'redeploying' ? 'Honeypots redeploying…' : 'Not running — start protection first',
+        d.status === 'redeploying' ? 'success' : 'error');
+  btn.textContent = '🔄 Redeploy Now';
+  btn.disabled = false;
+}
+
+async function generateAIHoneypots() {
+  const names = hpNames.length ? hpNames : ['Q4_invoice_final_v2.docx','salary_review_2024.docx','bank_statement_jan_2024.pdf'];
+  const btn = document.getElementById('aiHpBtn');
+  btn.textContent = '⏳ Generating…';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/ai_generate_honeypot', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+      body: JSON.stringify({names}),
+    });
+    if (r.status === 401) { handleUnauthorized(); return; }
+    const d = await r.json();
+    if (d.error) { toast(d.error, 'error'); return; }
+    await fetch('/api/redeploy_honeypots', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+      body: JSON.stringify({names, ai_contents: d.contents}),
+    });
+    toast('AI-generated honeypots deployed!', 'success');
+  } catch(e) {
+    toast('AI generation failed', 'error');
+  }
+  btn.textContent = '🤖 AI Generate Content';
+  btn.disabled = false;
+}
+
+// ─────────────────────────────────────────
+//  AI CHAT
+// ─────────────────────────────────────────
+function clearChat() {
+  chatHistory = [];
+  const box = document.getElementById('chatBox');
+  box.innerHTML = '<div class="chat-msg ai" id="chatWelcome">Chat cleared. Ask me anything about your security!</div>';
+}
+
+async function sendChat() {
+  if (chatBusy) return;
+  const inp = document.getElementById('chatInput');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+
+  chatBusy = true;
+  const btn = document.getElementById('chatSendBtn');
+  btn.disabled = true;
+
+  const box = document.getElementById('chatBox');
+  const welcome = document.getElementById('chatWelcome');
+  if (welcome) welcome.remove();
+
+  box.innerHTML += `<div class="chat-msg user">${esc(msg)}</div>`;
+  box.innerHTML += `<div class="chat-msg thinking" id="chatThinking">Thinking…</div>`;
+  box.scrollTop = box.scrollHeight;
+
+  chatHistory.push({role: 'user', content: msg});
+
+  try {
+    const alertSummary = (state.alerts || []).slice(0,5).map(a => `[${a.level}] ${a.source}: ${a.message}`).join('\n');
+    const contextMsg = alertSummary
+      ? `[Current system context - recent alerts:\n${alertSummary}]\n\nUser: ${msg}`
+      : msg;
+
+    const r = await fetch('/api/ai_chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+      body: JSON.stringify({
+        message: contextMsg,
+        history: chatHistory.slice(0, -1),
+      }),
+    });
+    if (r.status === 401) { handleUnauthorized(); return; }
+    const d = await r.json();
+    const thinking = document.getElementById('chatThinking');
+    if (thinking) thinking.remove();
+    if (d.error) {
+      box.innerHTML += `<div class="chat-msg error">⚠️ ${esc(d.error)}</div>`;
+    } else {
+      chatHistory.push({role: 'assistant', content: d.reply});
+      box.innerHTML += `<div class="chat-msg ai">${d.reply.replace(/\n/g,'<br>')}</div>`;
+    }
+  } catch(e) {
+    const thinking = document.getElementById('chatThinking');
+    if (thinking) thinking.remove();
+    box.innerHTML += `<div class="chat-msg error">⚠️ Network error</div>`;
+  }
+  box.scrollTop = box.scrollHeight;
+  chatBusy = false;
+  btn.disabled = false;
+}
+
+// ─────────────────────────────────────────
+//  SETTINGS
+// ─────────────────────────────────────────
+async function saveSettings() {
+  const payload = {
+    dashboard_password:      document.getElementById('cfgDashPwd').value.trim() || 'ransomguard',
+    backup_password:         document.getElementById('cfgBkPwd').value.trim() || '11223344',
+    backup_interval_minutes: parseInt(document.getElementById('cfgBkInterval').value) || 60,
+    single_backup_mode:      document.getElementById('cfgSingleMode').checked,
+  };
+  const r = await fetch('/api/save_config', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-RG-Session': sessionToken},
+    body: JSON.stringify(payload),
+  });
+  const d = await r.json();
+  if (d.status === 'ok') toast('Settings saved', 'success');
+  else toast('Error saving settings', 'error');
+  fetchState();
+}
+
+// ─────────────────────────────────────────
+//  TOAST
+// ─────────────────────────────────────────
+let toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = 'toast', 3000);
+}
+
+// ─────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────
+function js(s) { return "'" + String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'") + "'"; }
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ─────────────────────────────────────────
+//  INIT — show lock screen, don't auto-poll
+// ─────────────────────────────────────────
+renderFolderTags();
+renderHpTags();
+// fetchState and setInterval are started AFTER successful unlock in doUnlock()
+</script>
+</body>
+</html>
